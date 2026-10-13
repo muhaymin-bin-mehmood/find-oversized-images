@@ -1,6 +1,6 @@
 {
   "name": "find-oversized-images",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Find images that are much bigger than the size they are shown at, on any web page.",
   "type": "module",
   "bin": {
