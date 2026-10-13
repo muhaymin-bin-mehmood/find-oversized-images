@@ -11,7 +11,7 @@ Lighthouse says "properly size images". This tells you which ones, by how much, 
 npx find-oversized-images https://example.com
 ```
 
-It opens the page in the Chrome or Edge you already have (headless, nothing extra to download), once at phone size and once at desktop size. For every `<img>` it compares the file's pixels with the pixels the screen can actually use.
+It opens the page in the Chrome or Edge you already have (headless, no browser download), once at phone size and once at desktop size. For every `<img>` it compares the file's pixels with the pixels the screen can actually use.
 
 ## Output
 
@@ -90,7 +90,8 @@ For a 3.3x image that says 70%, where pixel math says 91%. The real number is us
 
 ## Limits
 
-- Only `<img>` elements. CSS background images, images inside shadow DOM, and canvas are not checked.
+- Only `<img>` elements. CSS background images, images inside iframes or shadow DOM, and canvas are not checked.
+- SVG files are skipped. They scale to any size, so they cannot be oversized in this sense.
 - One page per run.
 - It reports. It does not resize anything.
 - It scrolls the page to load lazy images, but images behind a click (tabs, carousels) can show up as "not loaded".
