@@ -13,6 +13,8 @@ npx find-oversized-images https://example.com
 
 It opens the page in the Chrome or Edge you already have (headless, no browser download), once at phone size and once at desktop size. For every `<img>` it compares the file's pixels with the pixels the screen can actually use.
 
+No browser window opens. The browser runs in the background and the report prints in your terminal. Add `--json` if you want the data in a file.
+
 ## Output
 
 ```
