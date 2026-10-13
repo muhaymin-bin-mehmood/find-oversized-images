@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>find-oversized-images fixture</title>
+<style>body { margin: 0 } img { display: block }</style>
+</head>
+<body>
+<!-- fill (default): 1600x800 stretched into 400x400, scale = max(0.25, 0.5) = 0.5. Largest image, so it is the LCP. -->
+<img src="/img/1600x800.png?c=fill" alt="" style="width:400px;height:400px">
+<!-- cover: scale = max(0.25, 0.125) = 0.25 -->
+<img src="/img/1600x800.png?c=cover" alt="" style="width:400px;height:100px;object-fit:cover">
+<!-- contain: scale = 0.125 -->
+<img src="/img/1600x800.png?c=contain" alt="" style="width:400px;height:100px;object-fit:contain">
+<!-- none: scale = 1 -->
+<img src="/img/1600x800.png?c=none" alt="" style="width:400px;height:100px;object-fit:none">
+<!-- padding and border are not image area: content box is 400x100 -->
+<img src="/img/1600x800.png?c=pad" alt="" style="width:400px;height:100px;padding:10px;border:5px solid #000;object-fit:cover">
+<!-- srcset: at DPR 1 the browser picks the 400w file -->
+<img srcset="/img/400x200.png?c=srcset 400w, /img/1600x800.png?c=srcset 1600w" sizes="400px" alt="" style="width:400px;height:200px">
+<!-- same file twice: 100x50 (extra 4) and 200x100 (extra 2); the 200x100 use wins -->
+<img src="/img/400x200.png?c=dup" alt="" style="width:100px;height:50px">
+<img src="/img/400x200.png?c=dup" alt="" style="width:200px;height:100px">
+<!-- src redirects: transfer size must still be found -->
+<img src="/redirect/400x200.png" alt="" style="width:100px;height:50px">
+<!-- skipped: svg, data URL, hidden -->
+<img src="/img/icon.svg" alt="" style="width:10px;height:10px">
+<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt="" style="width:10px;height:10px">
+<img src="/img/400x200.png?c=hidden" alt="" style="display:none">
+<!-- broken: counts as not loaded -->
+<img src="/img/missing.png" alt="" style="width:50px;height:50px">
+<!-- lazy image far below the fold -->
+<div style="height:3000px"></div>
+<img loading="lazy" src="/img/1600x800.png?c=lazy" alt="" style="width:200px;height:100px">
+</body>
+</html>

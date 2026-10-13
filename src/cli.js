@@ -1,6 +1,10 @@
 import { parseArgs } from 'node:util';
 import { readFileSync } from 'node:fs';
-import { ToolError } from './errors.js';
+import { ToolError, firstLine } from './errors.js';
+import { launchBrowser } from './browser.js';
+import { collectViewport } from './collect.js';
+import { analyzeViewport } from './analyze.js';
+import { formatTable, formatJson } from './format.js';
 
 export const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -117,4 +121,49 @@ export function parseCli(argv) {
     timeout: number(v.timeout, '--timeout', { integer: true }) ?? 30000,
     browserPath: v['browser-path'] ?? null,
   };
+}
+
+/**
+ * Run the CLI. Returns the exit code: 0 ok, 1 --fail-on crossed, 2 error.
+ * @param {string[]} argv
+ * @param {{stdout?: NodeJS.WritableStream, stderr?: NodeJS.WritableStream}} [io]
+ */
+export async function run(argv, { stdout = process.stdout, stderr = process.stderr } = {}) {
+  let browser;
+  const onSigint = async () => {
+    await browser?.close().catch(() => {});
+    process.exit(130);
+  };
+  try {
+    const opts = parseCli(argv);
+    if (opts.help) {
+      stdout.write(HELP);
+      return 0;
+    }
+    if (opts.version) {
+      stdout.write(`${VERSION}\n`);
+      return 0;
+    }
+
+    process.once('SIGINT', onSigint);
+    browser = await launchBrowser({ browserPath: opts.browserPath });
+
+    const viewports = [];
+    for (const viewport of opts.viewports) {
+      const raw = await collectViewport(browser, opts.url, viewport, { timeout: opts.timeout });
+      viewports.push(analyzeViewport({ viewport, raw, bytesByUrl: raw.bytesByUrl, threshold: opts.threshold }));
+    }
+
+    const report = { url: opts.url, version: VERSION, threshold: opts.threshold, viewports };
+    stdout.write(opts.json ? formatJson(report) : formatTable(report));
+
+    const failed = opts.failOn !== null && viewports.some((vp) => vp.images.some((i) => i.extra >= opts.failOn));
+    return failed ? 1 : 0;
+  } catch (err) {
+    stderr.write(`Error: ${err instanceof ToolError ? err.message : firstLine(err)}\n`);
+    return 2;
+  } finally {
+    process.removeListener('SIGINT', onSigint);
+    await browser?.close().catch(() => {});
+  }
 }
