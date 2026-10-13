@@ -55,6 +55,19 @@ test('a URL without a scheme gets https', () => {
   assert.equal(normalizeUrl('http://localhost:3000/'), 'http://localhost:3000/');
 });
 
+test('a local address without a scheme gets http, since dev servers rarely speak https', () => {
+  assert.equal(normalizeUrl('localhost:3000'), 'http://localhost:3000/');
+  assert.equal(normalizeUrl('localhost/page'), 'http://localhost/page');
+  assert.equal(normalizeUrl('app.localhost:5173'), 'http://app.localhost:5173/');
+  assert.equal(normalizeUrl('127.0.0.1:8080/shop'), 'http://127.0.0.1:8080/shop');
+  assert.equal(normalizeUrl('[::1]:3000'), 'http://[::1]:3000/');
+  assert.equal(normalizeUrl('0.0.0.0:4000'), 'http://0.0.0.0:4000/');
+  // An explicit scheme always wins
+  assert.equal(normalizeUrl('https://localhost:3000'), 'https://localhost:3000/');
+  // Lookalike public hosts stay on https
+  assert.equal(normalizeUrl('localhost.example.com'), 'https://localhost.example.com/');
+});
+
 test('rejects non-http URLs and junk', () => {
   assert.throws(
     () => normalizeUrl('ftp://example.com'),

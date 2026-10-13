@@ -37,15 +37,23 @@ Needs Chrome or Edge installed.
 
 const HINT = 'Run with --help for usage.';
 
-/** Accept "example.com" as https://example.com. Only http and https are allowed. */
+// Local dev servers almost never speak https
+const isLocalHost = (hostname) =>
+  hostname === 'localhost' || hostname.endsWith('.localhost') || /^127\./.test(hostname) || hostname === '[::1]' || hostname === '0.0.0.0';
+
+/**
+ * Accept "example.com" as https://example.com, and "localhost:3000" as http://localhost:3000.
+ * Only http and https are allowed.
+ */
 export function normalizeUrl(input) {
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(input) ? input : `https://${input}`;
+  const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(input);
   let url;
   try {
-    url = new URL(withScheme);
+    url = new URL(hasScheme ? input : `https://${input}`);
   } catch {
     throw new ToolError(`"${input}" is not a valid URL. ${HINT}`);
   }
+  if (!hasScheme && isLocalHost(url.hostname)) url.protocol = 'http:';
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new ToolError(`Only http and https URLs are supported, got ${url.protocol.slice(0, -1)}. ${HINT}`);
   }
