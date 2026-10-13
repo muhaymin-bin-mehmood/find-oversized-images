@@ -5,6 +5,9 @@ import { analyzeViewport } from '../src/analyze.js';
 const viewport = { name: 'desktop', width: 1366, height: 768, dpr: 1, mobile: false };
 const img = (url, boxWidth, boxHeight, extra = {}) => ({
   url,
+  identity: url,
+  domPath: 'body:nth-of-type(1) > img:nth-of-type(1)',
+  from: 'img',
   naturalWidth: 1600,
   naturalHeight: 800,
   boxWidth,
@@ -32,6 +35,9 @@ test('builds a finding with rounded numbers', () => {
   const [f] = run([img('a', 400, 200)], { bytes: { a: 100000 } }).images;
   assert.deepEqual(f, {
     url: 'a',
+    identity: 'a',
+    domPath: 'body:nth-of-type(1) > img:nth-of-type(1)',
+    from: 'img',
     file: { width: 1600, height: 800 },
     shown: { width: 400, height: 200 },
     needed: { width: 400, height: 200 },

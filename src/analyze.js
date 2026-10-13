@@ -35,6 +35,9 @@ export function analyzeViewport({ viewport, raw, bytesByUrl, threshold }) {
     const bytes = bytesByUrl.get(img.url) ?? null;
     const finding = {
       url: img.url,
+      identity: img.identity,
+      domPath: img.domPath,
+      from: img.from,
       file: { width: img.naturalWidth, height: img.naturalHeight },
       shown: { width: Math.round(img.boxWidth), height: Math.round(img.boxHeight) },
       needed: m.needed,
