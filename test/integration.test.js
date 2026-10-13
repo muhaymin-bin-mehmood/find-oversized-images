@@ -134,6 +134,16 @@ test('usage errors exit 2 before any browser starts', async () => {
   assert.match(stderr, /^Error: --threshold needs a number above 0/);
 });
 
+test('a closed stdout pipe (as with | head -1) exits quietly', async () => {
+  const child = spawn(process.execPath, [BIN, '--help']);
+  child.stdout.destroy(); // the reader goes away before the CLI writes
+  let stderr = '';
+  child.stderr.on('data', (d) => (stderr += d));
+  const code = await new Promise((resolve) => child.on('close', resolve));
+  assert.equal(stderr, '');
+  assert.equal(code, 0);
+});
+
 test('--version prints the package version', async () => {
   const { code, stdout } = await runCli(['--version']);
   assert.equal(code, 0);
