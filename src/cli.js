@@ -27,7 +27,7 @@ Options:
   --threshold <n>      list images at or above this extra ratio (default 2)
   --fail-on <n>        exit 1 if any image has extra >= n (for CI)
   --json               print JSON instead of a table
-  --timeout <ms>       page load timeout (default 30000)
+  --timeout <ms>       page load timeout, also used if it hangs after load (default 30000)
   --browser-path <p>   path to a Chrome or Edge executable
   -h, --help           show this help
   -v, --version        show the version

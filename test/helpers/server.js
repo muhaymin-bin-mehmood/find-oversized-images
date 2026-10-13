@@ -9,6 +9,8 @@ export const PNGS = {
 
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>';
 const PAGE = readFileSync(new URL('../fixtures/page.html', import.meta.url));
+// Loads normally, then blocks its main thread forever
+const SPIN_PAGE = '<!doctype html><title>spin</title><script>addEventListener("load", () => setTimeout(() => { for (;;); }, 50));</script>';
 
 function send(res, status, type, body) {
   // Content-Length avoids chunked framing, so bytes on the wire equal the file size
@@ -26,6 +28,7 @@ export async function startServer() {
       return send(res, 200, 'text/html; charset=utf-8', PAGE);
     }
     if (pathname === '/slow.html') return; // never answers, for the timeout test
+    if (pathname === '/spin.html') return send(res, 200, 'text/html; charset=utf-8', SPIN_PAGE);
     if (pathname === '/redirect/400x200.png') {
       res.writeHead(302, { location: '/img/400x200.png?c=redirect-target' });
       return res.end();

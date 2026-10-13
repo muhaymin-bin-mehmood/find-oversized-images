@@ -47,7 +47,7 @@ Desktop 1366x768 @1x   42 images, 2 oversized, 2 not loaded
 | `--threshold <n>` | List images at or above this `extra` (default 2) |
 | `--fail-on <n>` | Exit with code 1 if any image has `extra` of n or more |
 | `--json` | Print JSON with every image, not just the oversized ones |
-| `--timeout <ms>` | Page load timeout (default 30000) |
+| `--timeout <ms>` | Page load timeout, also used if the page hangs after it loads (default 30000) |
 | `--browser-path <path>` | Use this Chrome or Edge executable |
 
 ## Use it in CI

@@ -4,6 +4,16 @@ const SCROLL_MAX_STEPS = 20;
 const SCROLL_MAX_MS = 15000;
 const SETTLE_MAX_MS = 3000;
 
+/** Reject with a ToolError if `promise` has not settled within `ms`. */
+function withDeadline(promise, ms, message) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new ToolError(message)), ms);
+  });
+  promise.catch(() => {}); // a step that loses the race rejects later, when the context closes
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
 // The functions below run inside the page, so they must not use anything from this module.
 
 function readLcp() {
@@ -133,15 +143,28 @@ export async function collectViewport(browser, url, viewport, { timeout }) {
     }
     if (response && response.status() >= 400) throw new ToolError(`${url} returned HTTP ${response.status()}.`);
 
+    // A script that spins after load would block page.evaluate forever. Each step
+    // gets the time it can take on a healthy page plus --timeout, then gives up.
+    const step = (promise, expectedMs = 0) =>
+      withDeadline(
+        promise,
+        expectedMs + timeout,
+        `The page stopped responding after it loaded (${viewport.name} viewport). A script on it may be stuck. Try a larger --timeout.`,
+      );
+
     // Read LCP before scrolling, so scrolling cannot change it
     await page.waitForTimeout(1000);
-    const lcp = await page.evaluate(readLcp);
+    const lcp = await step(page.evaluate(readLcp), 100);
 
-    await page.evaluate(scrollThrough, { maxSteps: SCROLL_MAX_STEPS, maxMs: SCROLL_MAX_MS });
-    await page.evaluate(waitForImages, SETTLE_MAX_MS);
-    const { images, notLoaded } = await page.evaluate(readImages);
+    await step(page.evaluate(scrollThrough, { maxSteps: SCROLL_MAX_STEPS, maxMs: SCROLL_MAX_MS }), SCROLL_MAX_MS + 250);
+    await step(page.evaluate(waitForImages, SETTLE_MAX_MS), SETTLE_MAX_MS + 100);
+    const { images, notLoaded } = await step(page.evaluate(readImages));
 
-    while (pending.length) await Promise.all(pending.splice(0));
+    await step(
+      (async () => {
+        while (pending.length) await Promise.all(pending.splice(0));
+      })(),
+    );
     return { images, notLoaded, lcp, bytesByUrl };
   } finally {
     await context.close();

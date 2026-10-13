@@ -120,6 +120,14 @@ test('a page that never loads times out with exit 2', { skip }, async () => {
   assert.match(stderr, /did not finish loading within 1000 ms.*--timeout/);
 });
 
+// Before the fix this run never ended, which would hang a CI job using --fail-on
+test('a page that hangs after it loads times out with exit 2', { skip, timeout: 20000 }, async () => {
+  const { code, stdout, stderr } = await runCli([`${server.origin}/spin.html`, '--desktop', '--timeout', '1000']);
+  assert.equal(code, 2, stderr);
+  assert.equal(stdout, '');
+  assert.match(stderr, /^Error: The page stopped responding after it loaded \(desktop viewport\).*--timeout/);
+});
+
 test('usage errors exit 2 before any browser starts', async () => {
   const { code, stderr } = await runCli(['example.com', '--threshold', 'abc']);
   assert.equal(code, 2);
