@@ -14,7 +14,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/math.test.js test/srcset.test.js test/diagnose.test.js test/analyze.test.js test/group.test.js test/join.test.js test/sizes.test.js test/links.test.js test/format.test.js test/html.test.js test/cli.test.js test/browser.test.js test/integration.test.js"
+    "test": "node --test test/math.test.js test/srcset.test.js test/diagnose.test.js test/analyze.test.js test/group.test.js test/join.test.js test/sizes.test.js test/fixcode.test.js test/links.test.js test/format.test.js test/html.test.js test/cli.test.js test/browser.test.js test/integration.test.js"
   },
   "keywords": [
     "images",

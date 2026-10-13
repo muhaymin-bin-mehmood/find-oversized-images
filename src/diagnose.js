@@ -1,18 +1,9 @@
 import { parseSrcset } from './srcset.js';
+import { isShopifyCdn } from './shopify.js';
 
 const MAX_SIZES_SHOWN = 60;
 
 const shorten = (text) => (text.length > MAX_SIZES_SHOWN ? `${text.slice(0, MAX_SIZES_SHOWN - 3)}...` : text);
-
-// Shopify's image CDN resizes any file on request with a width= parameter
-function isShopifyCdn(url) {
-  try {
-    const u = new URL(url);
-    return u.hostname === 'cdn.shopify.com' || u.pathname.includes('/cdn/shop/');
-  } catch {
-    return false;
-  }
-}
 
 const shopifyHint = (url, need) => (isShopifyCdn(url) ? ` Shopify resizes on request: the same URL with width=${need} gives that file.` : '');
 
