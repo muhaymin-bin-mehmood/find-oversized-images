@@ -7,6 +7,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { launchBrowser } from '../src/browser.js';
+import { collectViewport } from '../src/collect.js';
 import { run } from '../src/cli.js';
 
 const BIN = fileURLToPath(new URL('../bin/find-oversized-images.js', import.meta.url));
@@ -217,4 +218,27 @@ test('--version prints the package version', async () => {
   const { code, stdout } = await runCli(['--version']);
   assert.equal(code, 0);
   assert.match(stdout, /^\d+\.\d+\.\d+\n$/);
+});
+
+test('reports a stable identity, a dom path and where the srcset came from', { skip }, async () => {
+  const browser = await launchBrowser();
+  try {
+    const raw = await collectViewport(
+      browser,
+      `${server.origin}/page.html`,
+      { name: 'desktop', width: 1366, height: 768, dpr: 1, mobile: false },
+      { timeout: 30000 },
+    );
+    for (const image of raw.images) {
+      assert.ok(typeof image.identity === 'string' && image.identity.length > 0, 'identity is a non-empty string');
+      assert.match(image.domPath, /^(html|body|[a-z]+:nth-of-type\(\d+\))/);
+      assert.ok(image.from === 'img' || image.from === 'source');
+    }
+    // identity must be the attribute, not the file the browser picked
+    const withSrcset = raw.images.find((i) => i.srcset);
+    assert.equal(withSrcset.identity, withSrcset.srcset);
+    assert.ok(!withSrcset.identity.startsWith('http'), 'identity is the attribute, not a resolved URL');
+  } finally {
+    await browser.close();
+  }
 });

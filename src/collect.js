@@ -65,10 +65,28 @@ async function readImages({ decodable, decodeMaxMs }) {
         if (!source.getAttribute('srcset')) continue;
         if (source.media && !matchMedia(source.media).matches) continue;
         if (source.type && !decodable.includes(source.type.trim().toLowerCase())) continue;
-        return { srcset: source.getAttribute('srcset'), sizes: source.getAttribute('sizes') };
+        return { srcset: source.getAttribute('srcset'), sizes: source.getAttribute('sizes'), from: 'source' };
       }
     }
-    return { srcset: img.getAttribute('srcset'), sizes: img.getAttribute('sizes') };
+    return { srcset: img.getAttribute('srcset'), sizes: img.getAttribute('sizes'), from: 'img' };
+  };
+
+  // An nth-of-type chain, so two images with the same attributes stay distinct
+  const pathTo = (el) => {
+    const parts = [];
+    for (let node = el; node && node.nodeType === 1 && parts.length < 20; node = node.parentElement) {
+      const tag = node.tagName.toLowerCase();
+      if (!node.parentElement) {
+        parts.unshift(tag);
+        break;
+      }
+      let index = 1;
+      for (let sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
+        if (sib.tagName === node.tagName) index++;
+      }
+      parts.unshift(`${tag}:nth-of-type(${index})`);
+    }
+    return parts.join(' > ');
   };
 
   // With srcset, naturalWidth is "density-corrected": a 1600px file picked for an
@@ -104,7 +122,7 @@ async function readImages({ decodable, decodeMaxMs }) {
     const boxWidth = rect.width - px('paddingLeft') - px('paddingRight') - px('borderLeftWidth') - px('borderRightWidth');
     const boxHeight = rect.height - px('paddingTop') - px('paddingBottom') - px('borderTopWidth') - px('borderBottomWidth');
     if (boxWidth <= 0 || boxHeight <= 0) continue;
-    const { srcset, sizes } = chosenSrcset(img);
+    const { srcset, sizes, from } = chosenSrcset(img);
     const entry = {
       url,
       naturalWidth: img.naturalWidth,
@@ -114,6 +132,11 @@ async function readImages({ decodable, decodeMaxMs }) {
       objectFit: style.objectFit,
       srcset: srcset || null,
       sizes: sizes ?? null,
+      // currentSrc changes with the viewport when srcset is in play, so the join key
+      // has to be an attribute, which does not change
+      identity: srcset || img.getAttribute('src') || url,
+      domPath: pathTo(img),
+      from,
     };
     images.push(entry);
     if (srcset) {
