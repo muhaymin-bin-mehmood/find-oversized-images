@@ -81,9 +81,12 @@ export function buildSizes(perViewport) {
 
   const slots = slotWidths(perViewport);
   return points
-    .map((p) => {
+    .map((p, i) => {
+      // The last entry must carry no query: when every query fails the browser falls back
+      // to 100vw and picks the largest file, which is the problem this tool reports
+      const last = i === points.length - 1;
       const { query } = BUCKETS[p.name];
-      return query === null ? `${slots[p.name]}px` : `${query} ${slots[p.name]}px`;
+      return query === null || last ? `${slots[p.name]}px` : `${query} ${slots[p.name]}px`;
     })
     .join(', ');
 }

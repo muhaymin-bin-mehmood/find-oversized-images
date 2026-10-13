@@ -52,6 +52,16 @@ export function buildFix(joined) {
     );
   }
   if (missing.length) notes.push(`Not measured on ${missing.join(' and ')}, so this is built from ${measured.join(' and ')} only.`);
+  // Without a desktop measurement the widest value is a tablet value standing in for
+  // every wider screen, which the reader has to know before pasting
+  const noDesktop = !measured.includes('desktop');
+  if (noDesktop) {
+    notes.push(
+      `The desktop viewport was not measured, so the widest value comes from ${
+        measured[measured.length - 1]
+      }. Run without a viewport flag to measure all three.`,
+    );
+  }
   const candidates = parseSrcset(joined.srcsetAttr);
   if (candidates.length > 0 && candidates.every((c) => c.w === null)) {
     notes.push('This srcset uses x descriptors, so the box size cannot pick the file. The code below uses w descriptors instead.');
@@ -76,6 +86,6 @@ export function buildFix(joined) {
     srcset,
     html,
     notes,
-    confident: !joined.partial,
+    confident: !joined.partial && !noDesktop,
   };
 }

@@ -120,3 +120,13 @@ test('the ladder covers the slot that sizes declares at the top of a bucket', ()
   const widest = Math.max(...fix.widths);
   assert.ok(widest >= 1332, `expected a candidate at or above 1332, got ${JSON.stringify(fix.widths)} with sizes ${fix.sizes}`);
 });
+
+test('a run without the desktop viewport says so and is not confident', () => {
+  const fix = buildFix(joined({ perViewport: { mobile: point(390, 360, 3), tablet: point(768, 384, 2) }, oversizedAt: ['mobile', 'tablet'] }));
+  assert.ok(fix, 'two viewports are enough for code');
+  assert.equal(fix.confident, false);
+  assert.ok(
+    fix.notes.some((n) => n.includes('desktop')),
+    `expected a note that desktop was not measured, got ${JSON.stringify(fix.notes)}`,
+  );
+});

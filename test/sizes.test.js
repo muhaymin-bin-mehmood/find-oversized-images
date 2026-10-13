@@ -50,3 +50,11 @@ test('a fixed-width image has the same slot in every bucket', () => {
   const perViewport = { mobile: point(390, 300, 3), tablet: point(768, 304, 2), desktop: point(1366, 300, 1) };
   assert.deepEqual(slotWidths(perViewport), { mobile: 304, tablet: 304, desktop: 304 });
 });
+
+test('the widest measured bucket is unconditional, so wide screens are not left at 100vw', () => {
+  // without a desktop measurement the last entry must still be a bare value: a sizes list
+  // whose queries all fail falls back to 100vw, which picks the largest file
+  const sizes = buildSizes({ mobile: point(390, 358, 3), tablet: point(768, 384, 2), desktop: null });
+  assert.equal(sizes, '(max-width: 480px) 441px, 512px');
+  assert.ok(!/\(max-width: 1024px\)$/.test(sizes), 'the last entry carries no media query');
+});
