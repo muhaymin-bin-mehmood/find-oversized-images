@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { startServer, PNGS } from './helpers/server.js';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { launchBrowser } from '../src/browser.js';
+import { run } from '../src/cli.js';
 
 const BIN = fileURLToPath(new URL('../bin/find-oversized-images.js', import.meta.url));
 
@@ -124,6 +128,52 @@ test('default run prints a table for mobile and desktop', { skip }, async () => 
   assert.match(stdout, /Desktop 1366x768 @1x/);
   assert.match(stdout, /<- LCP/);
   assert.match(stdout, /Total: ~\d+ KB could be saved \(estimate, conservative\)/);
+});
+
+const sink = () => {
+  const chunks = [];
+  return { write: (c) => chunks.push(String(c)), text: () => chunks.join(''), isTTY: false };
+};
+
+test('--html saves a report next to the table and opens it', { skip }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'foi-'));
+  try {
+    const stdout = sink();
+    const stderr = sink();
+    const opened = [];
+    const code = await run([`${server.origin}/page.html`, '--desktop', '--html'], {
+      stdout, stderr, env: {}, cwd: dir, openFile: (f) => opened.push(f),
+    });
+    assert.equal(code, 0, stderr.text());
+    const file = join(dir, 'oversized-report.html');
+    assert.deepEqual(opened, [file]);
+    assert.match(stdout.text(), /Desktop 1366x768 @1x/);
+    assert.ok(stdout.text().endsWith(`HTML report saved to ${file}\n`));
+    const html = readFileSync(file, 'utf8');
+    assert.match(html, /Desktop 1366x768 @1x/);
+    assert.match(html, /<b>Fix:<\/b>/);
+    assert.match(html, /c=wsizes/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('--html with --json keeps stdout pure JSON, and CI never opens a browser', { skip }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'foi-'));
+  try {
+    const stdout = sink();
+    const stderr = sink();
+    const opened = [];
+    const code = await run([`${server.origin}/page.html`, '--desktop', '--html', '--json'], {
+      stdout, stderr, env: { CI: 'true' }, cwd: dir, openFile: (f) => opened.push(f),
+    });
+    assert.equal(code, 0, stderr.text());
+    assert.doesNotThrow(() => JSON.parse(stdout.text()));
+    assert.match(stderr.text(), /HTML report saved to/);
+    assert.deepEqual(opened, []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('HTTP errors exit 2', { skip }, async () => {

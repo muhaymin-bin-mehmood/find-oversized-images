@@ -53,3 +53,16 @@ test('x descriptors do not follow the box size', () => {
 test('a srcset that cannot be read is treated as missing', () => {
   assert.equal(diagnose(finding({ srcset: ' , ' }), viewport).reason, 'no-srcset');
 });
+
+test('Shopify CDN images get the exact width to request', () => {
+  const fix = diagnose(finding({ url: 'https://shop.example/cdn/shop/files/a.jpg?v=1&width=800' }), viewport);
+  assert.equal(
+    fix.advice,
+    'No srcset, so every screen downloads this 800px file. Add a srcset that includes a 280w version. Shopify resizes on request: the same URL with width=280 gives that file.',
+  );
+  const cdn = diagnose(finding({ url: 'https://cdn.shopify.com/s/files/1/a.jpg', srcset: 'a 800w', sizes: '280px' }), viewport);
+  assert.match(cdn.advice, /Shopify resizes on request: the same URL with width=280 gives that file\.$/);
+  // sizes problems are fixed in the markup, not the URL
+  const sizes = diagnose(finding({ url: 'https://cdn.shopify.com/a.jpg', srcset: 'a 300w, b 800w', sizes: '100vw' }), viewport);
+  assert.doesNotMatch(sizes.advice, /Shopify/);
+});

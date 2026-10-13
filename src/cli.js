@@ -1,10 +1,14 @@
 import { parseArgs } from 'node:util';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { spawn } from 'node:child_process';
 import { ToolError, firstLine } from './errors.js';
 import { launchBrowser } from './browser.js';
 import { collectViewport } from './collect.js';
 import { analyzeViewport } from './analyze.js';
 import { formatTable, formatJson } from './format.js';
+import { formatHtml } from './html.js';
+import { supportsHyperlinks } from './links.js';
 
 export const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -26,6 +30,9 @@ Options:
   --dpr <n>            custom device pixel ratio (default 1)
   --threshold <n>      list images at or above this extra ratio (default 2)
   --fail-on <n>        exit 1 if any image has extra >= n (for CI)
+  --all                one row per image (default groups images with the same problem)
+  --html               also save oversized-report.html with thumbnails and open it
+  --no-open            with --html, save the report but do not open it
   --json               print JSON instead of a table
   --timeout <ms>       page load timeout, also used if it hangs after load (default 30000)
   --browser-path <p>   path to a Chrome or Edge executable
@@ -36,6 +43,19 @@ Needs Chrome or Edge installed.
 `;
 
 const HINT = 'Run with --help for usage.';
+
+const HTML_FILE = 'oversized-report.html';
+
+/** Open a file with the system's default app. Best effort: the path is printed anyway. */
+function openInBrowser(file) {
+  const [cmd, args] =
+    process.platform === 'win32' ? ['explorer.exe', [file]] : process.platform === 'darwin' ? ['open', [file]] : ['xdg-open', [file]];
+  try {
+    const child = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+    child.on('error', () => {});
+    child.unref();
+  } catch {}
+}
 
 // Local dev servers almost never speak https
 const isLocalHost = (hostname) =>
@@ -86,6 +106,9 @@ export function parseCli(argv) {
         threshold: { type: 'string' },
         'fail-on': { type: 'string' },
         json: { type: 'boolean' },
+        all: { type: 'boolean' },
+        html: { type: 'boolean' },
+        'no-open': { type: 'boolean' },
         timeout: { type: 'string' },
         'browser-path': { type: 'string' },
         help: { type: 'boolean', short: 'h' },
@@ -126,6 +149,9 @@ export function parseCli(argv) {
     threshold: number(v.threshold, '--threshold') ?? 2,
     failOn: number(v['fail-on'], '--fail-on') ?? null,
     json: Boolean(v.json),
+    all: Boolean(v.all),
+    html: Boolean(v.html),
+    open: !v['no-open'],
     timeout: number(v.timeout, '--timeout', { integer: true }) ?? 30000,
     browserPath: v['browser-path'] ?? null,
   };
@@ -134,9 +160,13 @@ export function parseCli(argv) {
 /**
  * Run the CLI. Returns the exit code: 0 ok, 1 --fail-on crossed, 2 error.
  * @param {string[]} argv
- * @param {{stdout?: NodeJS.WritableStream, stderr?: NodeJS.WritableStream}} [io]
+ * @param {{stdout?: NodeJS.WritableStream, stderr?: NodeJS.WritableStream, env?: object, cwd?: string, openFile?: (path: string) => void}} [io]
+ *   env, cwd and openFile are only replaced in tests.
  */
-export async function run(argv, { stdout = process.stdout, stderr = process.stderr } = {}) {
+export async function run(
+  argv,
+  { stdout = process.stdout, stderr = process.stderr, env = process.env, cwd = process.cwd(), openFile = openInBrowser } = {},
+) {
   let browser;
   const onSigint = async () => {
     await browser?.close().catch(() => {});
@@ -163,7 +193,17 @@ export async function run(argv, { stdout = process.stdout, stderr = process.stde
     }
 
     const report = { url: opts.url, version: VERSION, threshold: opts.threshold, viewports };
-    stdout.write(opts.json ? formatJson(report) : formatTable(report));
+    const links = supportsHyperlinks({ env, isTTY: Boolean(stdout.isTTY) });
+    stdout.write(opts.json ? formatJson(report) : formatTable(report, { all: opts.all, links }));
+
+    if (opts.html) {
+      const file = resolve(cwd, HTML_FILE);
+      writeFileSync(file, formatHtml(report));
+      // Keep stdout pure JSON when --json is on
+      const note = opts.json ? stderr : stdout;
+      note.write(`\nHTML report saved to ${file}\n`);
+      if (opts.open && !env.CI) openFile(file);
+    }
 
     const failed = opts.failOn !== null && viewports.some((vp) => vp.images.some((i) => i.extra >= opts.failOn));
     return failed ? 1 : 0;

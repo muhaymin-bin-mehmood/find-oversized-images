@@ -99,3 +99,41 @@ test('json is the report, pretty printed', () => {
   assert.deepEqual(JSON.parse(out), r);
   assert.ok(out.endsWith('\n'));
 });
+
+const cards = (n) =>
+  Array.from({ length: n }, (_, k) =>
+    finding({
+      url: `https://shop.example/card-${k + 1}.jpg`,
+      file: { width: 800, height: 1200 },
+      shown: { width: 280, height: 392 },
+      extra: 2.9,
+      unusedPixels: 0.88,
+      bytes: 10240,
+      estSavingBytes: 6144,
+      fix: { reason: 'sizes', advice: 'sizes is "100vw" but the box is 280px wide, so the browser picks a bigger file. srcset already has 300w; make sizes match the box.' },
+    }),
+  );
+
+test('same problem on many images is one row with a count, an example and the fix', () => {
+  const vp = viewport({ images: cards(3), totals: { oversized: 3, estSavingBytes: 18432, unknownSizes: 0 } });
+  const out = formatTable(report([vp]));
+  assert.match(out, /2\.9x +88% +800x1200 +280x392 +30 KB +~18 KB +3 images, e\.g\. card-1\.jpg\n/);
+  assert.match(out, /\n {4}Fix: sizes is "100vw" but the box is 280px wide/);
+  assert.equal(out.match(/Fix:/g).length, 1);
+  assert.doesNotMatch(out, /card-2\.jpg/);
+});
+
+test('all: true lists every image', () => {
+  const vp = viewport({ images: cards(3), totals: { oversized: 3, estSavingBytes: 18432, unknownSizes: 0 } });
+  const out = formatTable(report([vp]), { all: true });
+  assert.match(out, /card-2\.jpg/);
+  assert.equal(out.match(/Fix:/g).length, 3);
+});
+
+test('links: true makes image names clickable without breaking the columns', () => {
+  const vp = viewport({ images: cards(2), totals: { oversized: 2, estSavingBytes: 12288, unknownSizes: 0 } });
+  const plain = formatTable(report([vp]));
+  const linked = formatTable(report([vp]), { links: true });
+  assert.ok(linked.includes('\x1b]8;;https://shop.example/card-1.jpg\x1b\\card-1.jpg\x1b]8;;\x1b\\'));
+  assert.equal(linked.replace(/\x1b\]8;;[^\x1b]*\x1b\\/g, ''), plain);
+});

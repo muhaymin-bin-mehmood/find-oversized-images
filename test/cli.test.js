@@ -12,6 +12,16 @@ test('defaults: both viewports, threshold 2, table output', () => {
   assert.equal(o.json, false);
   assert.equal(o.timeout, 30000);
   assert.equal(o.browserPath, null);
+  assert.equal(o.all, false);
+  assert.equal(o.html, false);
+  assert.equal(o.open, true);
+});
+
+test('--all, --html and --no-open', () => {
+  const o = parseCli(['x.com', '--all', '--html', '--no-open']);
+  assert.equal(o.all, true);
+  assert.equal(o.html, true);
+  assert.equal(o.open, false);
 });
 
 test('default viewports match the spec', () => {
