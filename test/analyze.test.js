@@ -43,7 +43,25 @@ test('builds a finding with rounded numbers', () => {
     count: 1,
     isLcp: false,
     oversized: true,
+    srcset: null,
+    sizes: null,
+    fix: {
+      reason: 'no-srcset',
+      advice: 'No srcset, so every screen downloads this 1600px file. Add a srcset that includes a 400w version.',
+    },
   });
+});
+
+test('passes srcset and sizes through and diagnoses with them', () => {
+  const [f] = run([img('a', 400, 200, { srcset: 'a-400.jpg 400w, a 1600w', sizes: '100vw' })]).images;
+  assert.equal(f.srcset, 'a-400.jpg 400w, a 1600w');
+  assert.equal(f.sizes, '100vw');
+  assert.equal(f.fix.reason, 'sizes');
+});
+
+test('images that are not oversized get no fix', () => {
+  const r = run([img('ok', 1600, 800)]);
+  assert.equal(r.images[0].fix, null);
 });
 
 test('dedupes by URL and keeps the most demanding use', () => {

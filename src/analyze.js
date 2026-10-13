@@ -1,4 +1,5 @@
 import { measure, unusedPixels, estimateSaving } from './math.js';
+import { diagnose } from './diagnose.js';
 
 const round = (n, places) => {
   const f = 10 ** places;
@@ -32,7 +33,7 @@ export function analyzeViewport({ viewport, raw, bytesByUrl, threshold }) {
   const images = [...groups.values()].map(({ img, m, count }) => {
     const extra = round(m.extra, 1);
     const bytes = bytesByUrl.get(img.url) ?? null;
-    return {
+    const finding = {
       url: img.url,
       file: { width: img.naturalWidth, height: img.naturalHeight },
       shown: { width: Math.round(img.boxWidth), height: Math.round(img.boxHeight) },
@@ -45,7 +46,11 @@ export function analyzeViewport({ viewport, raw, bytesByUrl, threshold }) {
       count,
       isLcp: lcpUrl !== null && img.url === lcpUrl,
       oversized: extra >= threshold,
+      srcset: img.srcset ?? null,
+      sizes: img.sizes ?? null,
     };
+    finding.fix = finding.oversized ? diagnose(finding, viewport) : null;
+    return finding;
   });
   images.sort((a, b) => b.extra - a.extra);
 

@@ -49,8 +49,8 @@ test('measures every fixture case at DPR 1', { skip }, async () => {
   const { images } = vp;
 
   assert.equal(vp.notLoaded, 1);
-  assert.equal(vp.imageCount, 11);
-  assert.equal(images.length, 9);
+  assert.equal(vp.imageCount, 14);
+  assert.equal(images.length, 12);
 
   assert.deepEqual([byCase(images, 'fill').extra, byCase(images, 'fill').needed], [2, { width: 800, height: 400 }]);
   assert.deepEqual([byCase(images, 'cover').extra, byCase(images, 'cover').needed], [4, { width: 400, height: 200 }]);
@@ -64,6 +64,25 @@ test('measures every fixture case at DPR 1', { skip }, async () => {
   const srcset = byCase(images, 'srcset');
   assert.match(srcset.url, /400x200\.png\?c=srcset$/);
   assert.equal(srcset.extra, 1);
+
+  assert.equal(srcset.fix, null);
+
+  // srcset files are measured at their real size, not the density-corrected naturalWidth
+  const wsizes = byCase(images, 'wsizes');
+  assert.match(wsizes.url, /1600x800\.png\?c=wsizes$/);
+  assert.deepEqual([wsizes.file, wsizes.extra], [{ width: 1600, height: 800 }, 8]);
+  assert.equal(wsizes.sizes, '100vw');
+  assert.equal(wsizes.fix.reason, 'sizes');
+
+  const density = byCase(images, 'density');
+  assert.deepEqual([density.file, density.extra, density.fix.reason], [{ width: 1600, height: 800 }, 8, 'density']);
+
+  const pic = byCase(images, 'pic');
+  assert.deepEqual([pic.file, pic.extra], [{ width: 1600, height: 800 }, 8]);
+  assert.equal(pic.srcset, '/img/1600x800.png?c=pic 1600w');
+  assert.equal(pic.fix.reason, 'no-small-candidate');
+
+  assert.equal(byCase(images, 'cover').fix.reason, 'no-srcset');
 
   const dup = byCase(images, 'dup');
   assert.equal(dup.count, 2);

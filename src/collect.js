@@ -3,6 +3,9 @@ import { ToolError, firstLine } from './errors.js';
 const SCROLL_MAX_STEPS = 20;
 const SCROLL_MAX_MS = 15000;
 const SETTLE_MAX_MS = 3000;
+const DECODE_MAX_MS = 5000;
+// Types a <source> may name that Chrome and Edge can decode
+const DECODABLE = ['image/avif', 'image/webp', 'image/jpeg', 'image/png', 'image/gif', 'image/apng', 'image/bmp', 'image/x-icon'];
 
 /** Reject with a ToolError if `promise` has not settled within `ms`. */
 function withDeadline(promise, ms, message) {
@@ -53,8 +56,38 @@ async function waitForImages(maxMs) {
   while (busy() && Date.now() < end) await new Promise((r) => setTimeout(r, 100));
 }
 
-function readImages() {
+async function readImages({ decodable, decodeMaxMs }) {
+  // The srcset and sizes the browser used: the first matching <source> in a <picture>, else the <img>
+  const chosenSrcset = (img) => {
+    const picture = img.parentElement?.tagName === 'PICTURE' ? img.parentElement : null;
+    if (picture) {
+      for (const source of picture.querySelectorAll(':scope > source')) {
+        if (!source.getAttribute('srcset')) continue;
+        if (source.media && !matchMedia(source.media).matches) continue;
+        if (source.type && !decodable.includes(source.type.trim().toLowerCase())) continue;
+        return { srcset: source.getAttribute('srcset'), sizes: source.getAttribute('sizes') };
+      }
+    }
+    return { srcset: img.getAttribute('srcset'), sizes: img.getAttribute('sizes') };
+  };
+
+  // With srcset, naturalWidth is "density-corrected": a 1600px file picked for an
+  // 800px slot reports 800. Decode the file on its own to get its real pixels.
+  const filePixels = (url) =>
+    new Promise((resolve) => {
+      const probe = new Image();
+      const done = (size) => {
+        clearTimeout(timer);
+        resolve(size);
+      };
+      const timer = setTimeout(() => done(null), decodeMaxMs);
+      probe.onload = () => done(probe.naturalWidth > 0 ? { width: probe.naturalWidth, height: probe.naturalHeight } : null);
+      probe.onerror = () => done(null);
+      probe.src = url;
+    });
+
   const images = [];
+  const pending = [];
   let notLoaded = 0;
   for (const img of document.images) {
     const url = img.currentSrc || img.src;
@@ -71,15 +104,27 @@ function readImages() {
     const boxWidth = rect.width - px('paddingLeft') - px('paddingRight') - px('borderLeftWidth') - px('borderRightWidth');
     const boxHeight = rect.height - px('paddingTop') - px('paddingBottom') - px('borderTopWidth') - px('borderBottomWidth');
     if (boxWidth <= 0 || boxHeight <= 0) continue;
-    images.push({
+    const { srcset, sizes } = chosenSrcset(img);
+    const entry = {
       url,
       naturalWidth: img.naturalWidth,
       naturalHeight: img.naturalHeight,
       boxWidth,
       boxHeight,
       objectFit: style.objectFit,
-    });
+      srcset: srcset || null,
+      sizes: sizes ?? null,
+    };
+    images.push(entry);
+    if (srcset) {
+      pending.push(
+        filePixels(url).then((size) => {
+          if (size) Object.assign(entry, { naturalWidth: size.width, naturalHeight: size.height });
+        }),
+      );
+    }
   }
+  await Promise.all(pending);
   return { images, notLoaded };
 }
 
@@ -158,7 +203,10 @@ export async function collectViewport(browser, url, viewport, { timeout }) {
 
     await step(page.evaluate(scrollThrough, { maxSteps: SCROLL_MAX_STEPS, maxMs: SCROLL_MAX_MS }), SCROLL_MAX_MS + 250);
     await step(page.evaluate(waitForImages, SETTLE_MAX_MS), SETTLE_MAX_MS + 100);
-    const { images, notLoaded } = await step(page.evaluate(readImages));
+    const { images, notLoaded } = await step(
+      page.evaluate(readImages, { decodable: DECODABLE, decodeMaxMs: DECODE_MAX_MS }),
+      DECODE_MAX_MS + 100,
+    );
 
     await step(
       (async () => {

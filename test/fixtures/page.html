@@ -19,6 +19,17 @@
 <img src="/img/1600x800.png?c=pad" alt="" style="width:400px;height:100px;padding:10px;border:5px solid #000;object-fit:cover">
 <!-- srcset: at DPR 1 the browser picks the 400w file -->
 <img srcset="/img/400x200.png?c=srcset 400w, /img/1600x800.png?c=srcset 1600w" sizes="400px" alt="" style="width:400px;height:200px">
+<!-- sizes says 100vw (800px here), so the browser takes the 1600w file for a 200px box.
+     naturalWidth reports 800 (density-corrected); the real file is 1600px, extra 8. -->
+<img srcset="/img/400x200.png?c=wsizes 400w, /img/1600x800.png?c=wsizes 1600w" sizes="100vw" alt="" style="width:200px;height:100px">
+<!-- x descriptor: naturalWidth reports 800, the real file is 1600px, extra 8 at DPR 1 -->
+<img srcset="/img/1600x800.png?c=density 2x" alt="" style="width:200px;height:100px">
+<!-- picture: the first source does not match, the second does; its srcset has no small file -->
+<picture>
+  <source media="(max-width: 1px)" srcset="/img/400x200.png?c=pic-skip 400w" sizes="200px">
+  <source srcset="/img/1600x800.png?c=pic 1600w" sizes="200px">
+  <img src="/img/400x200.png?c=pic-fallback" alt="" style="width:200px;height:100px">
+</picture>
 <!-- same file twice: 100x50 (extra 4) and 200x100 (extra 2); the 200x100 use wins -->
 <img src="/img/400x200.png?c=dup" alt="" style="width:100px;height:50px">
 <img src="/img/400x200.png?c=dup" alt="" style="width:200px;height:100px">
