@@ -47,7 +47,7 @@ export function normalizeUrl(input) {
     throw new ToolError(`"${input}" is not a valid URL. ${HINT}`);
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new ToolError(`Only http and https URLs are supported, got ${url.protocol} ${HINT}`);
+    throw new ToolError(`Only http and https URLs are supported, got ${url.protocol.slice(0, -1)}. ${HINT}`);
   }
   return url.href;
 }

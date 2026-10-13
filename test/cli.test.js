@@ -56,7 +56,10 @@ test('a URL without a scheme gets https', () => {
 });
 
 test('rejects non-http URLs and junk', () => {
-  assert.throws(() => normalizeUrl('ftp://example.com'), ToolError);
+  assert.throws(
+    () => normalizeUrl('ftp://example.com'),
+    (err) => err instanceof ToolError && err.message === 'Only http and https URLs are supported, got ftp. Run with --help for usage.',
+  );
   assert.throws(() => normalizeUrl('http://'), ToolError);
 });
 
