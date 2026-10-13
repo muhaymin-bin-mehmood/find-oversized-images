@@ -103,3 +103,39 @@ test('links to the browser auditor at the bottom', () => {
   const html = formatHtml(report([viewport([card(1)])]), { generatedAt: at });
   assert.match(html, /href="https:\/\/batchset\.com\/tools\/website-image-auditor"/);
 });
+
+const fixEntry = (over = {}) => ({
+  joined: { url: 'https://shop.example/a.jpg', file: { width: 2000, height: 1500 } },
+  fix: {
+    target: 'img',
+    sizes: '300px',
+    widths: [300],
+    srcset: null,
+    html: '<img\n  srcset="a-300.jpg 300w"\n  sizes="300px">',
+    notes: ['These files do not exist yet: produce them at the widths below, then use the real names.'],
+    confident: true,
+    ...over,
+  },
+});
+
+test('adds a paste-ready fixes section with no script', () => {
+  const html = formatHtml({ url: 'https://shop.example/', version: '0.3.0', threshold: 2, viewports: [] }, { fixes: [fixEntry()] });
+
+  assert.match(html, /Paste-ready fixes/);
+  assert.match(html, /user-select:all/);
+  assert.match(html, /Click the code, then Ctrl\+C/);
+  assert.match(html, /&lt;img/, 'the code is escaped, not live markup');
+  assert.ok(!/<script/i.test(html), 'still no scripts');
+  assert.match(html, /default-src 'none'/, 'CSP is unchanged');
+});
+
+test('marks a fix that could not be fully measured', () => {
+  const entry = fixEntry({ target: 'source', confident: false, html: '<source srcset="b-800.jpg 800w" sizes="92vw">' });
+  const html = formatHtml({ url: 'https://shop.example/', version: '0.3.0', threshold: 2, viewports: [] }, { fixes: [entry] });
+  assert.match(html, /Not fully measured/);
+});
+
+test('no fixes section when there are no fixes', () => {
+  const html = formatHtml({ url: 'https://shop.example/', version: '0.3.0', threshold: 2, viewports: [] }, {});
+  assert.ok(!html.includes('Paste-ready fixes'));
+});

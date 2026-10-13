@@ -81,15 +81,43 @@ h2{font-size:18px;margin:32px 0 4px}
 .thumbs .meta{font-size:12px;color:var(--muted)}
 details summary{cursor:pointer;margin-top:10px;color:var(--accent)}
 .ok{color:var(--muted)}
+.code{background:var(--thumb);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;user-select:all;font:13px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;margin:8px 0}
+.hint{color:var(--muted);font-size:13px;margin:0}
+.warn{background:var(--accent-soft);border-radius:8px;padding:8px 10px;margin:8px 0;font-weight:600}
+.fixnotes{color:var(--muted);font-size:13px;margin:6px 0 0;padding-left:18px}
 footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
 `;
+
+const WORDPRESS_NOTE =
+  'On WordPress there is no per-image snippet: WordPress builds srcset from its registered sizes. ' +
+  'Register these widths with add_image_size, regenerate thumbnails, and return the sizes value from the wp_calculate_image_sizes filter.';
+
+function fixHtml({ joined, fix }) {
+  const warning = fix.confident ? '' : '<p class="warn">Not fully measured. Check this one before pasting.</p>';
+  const notes = fix.notes.length ? `<ul class="fixnotes">${fix.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
+  return (
+    `<article class="group">` +
+    `<div class="head"><span>${esc(shortName(joined.url))}</span>` +
+    `<span class="sizes">file ${joined.file.width}x${joined.file.height} &middot; paste on the &lt;${esc(fix.target)}&gt;</span></div>` +
+    `${warning}<p class="hint">Click the code, then Ctrl+C.</p><pre class="code">${esc(fix.html)}</pre>${notes}` +
+    `</article>`
+  );
+}
+
+/** The code to paste, built from every viewport, so it sits outside the per-viewport sections. */
+function fixesHtml(fixes) {
+  if (fixes.length === 0) return '';
+  return `<section><h2>Paste-ready fixes</h2><p class="summary">${
+    fixes.length === 1 ? '1 image' : `${fixes.length} images`
+  }, built from every viewport that was measured.</p>${fixes.map(fixHtml).join('')}<p class="note">${esc(WORDPRESS_NOTE)}</p></section>`;
+}
 
 /**
  * A self-contained HTML report: no scripts, images load from their own hosts.
  * @param {object} report
- * @param {{generatedAt?: Date}} [options]
+ * @param {{generatedAt?: Date, fixes?: {joined:object, fix:object}[]}} [options]
  */
-export function formatHtml(report, { generatedAt = new Date() } = {}) {
+export function formatHtml(report, { generatedAt = new Date(), fixes = [] } = {}) {
   const pageUrl = safeUrl(report.url);
   let host = report.url;
   try {
@@ -116,6 +144,7 @@ export function formatHtml(report, { generatedAt = new Date() } = {}) {
 <p class="meta-line">Checked ${esc(date)} UTC with find-oversized-images ${esc(report.version)}. Images whose file is ${esc(report.threshold)}x or more wider than the screen can use are listed. Click an image to open the file.</p>
 </header>
 ${report.viewports.map((vp) => viewportHtml(vp, report.threshold)).join('\n')}
+${fixesHtml(fixes)}
 <footer>Want the files fixed, not just listed? The free <a href="${AUDITOR_URL}">Website Image Auditor</a> optimizes flagged images in your browser.</footer>
 </main>
 </body>
