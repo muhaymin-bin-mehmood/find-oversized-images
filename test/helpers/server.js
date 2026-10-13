@@ -18,9 +18,13 @@ function send(res, status, type, body) {
 
 /** Serves the fixture page and in-memory images on a random local port. */
 export async function startServer() {
+  const pageUserAgents = [];
   const server = http.createServer((req, res) => {
     const { pathname } = new URL(req.url, 'http://localhost');
-    if (pathname === '/page.html') return send(res, 200, 'text/html; charset=utf-8', PAGE);
+    if (pathname === '/page.html') {
+      pageUserAgents.push(req.headers['user-agent'] ?? '');
+      return send(res, 200, 'text/html; charset=utf-8', PAGE);
+    }
     if (pathname === '/slow.html') return; // never answers, for the timeout test
     if (pathname === '/redirect/400x200.png') {
       res.writeHead(302, { location: '/img/400x200.png?c=redirect-target' });
@@ -35,6 +39,7 @@ export async function startServer() {
   const { port } = server.address();
   return {
     origin: `http://127.0.0.1:${port}`,
+    pageUserAgents,
     close() {
       server.closeAllConnections();
       return new Promise((resolve) => server.close(resolve));

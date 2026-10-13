@@ -93,7 +93,13 @@ test('applies the device pixel ratio', { skip }, async () => {
 });
 
 test('default run prints a table for mobile and desktop', { skip }, async () => {
+  server.pageUserAgents.length = 0;
   const { code, stdout, stderr } = await runCli([`${server.origin}/page.html`]);
+  // Sites that serve different markup by user agent must see a phone on the mobile run
+  const [mobileUa, desktopUa] = server.pageUserAgents;
+  assert.match(mobileUa, /Android.*Mobile/);
+  assert.doesNotMatch(desktopUa, /Mobile/);
+  assert.doesNotMatch(mobileUa + desktopUa, /Headless/);
   assert.equal(code, 0, stderr);
   assert.match(stdout, /Mobile 390x844 @3x/);
   assert.match(stdout, /Desktop 1366x768 @1x/);

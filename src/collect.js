@@ -74,6 +74,20 @@ function readImages() {
 }
 
 /**
+ * A normal Chrome user agent for the viewport. Some sites pick markup and image
+ * sizes by user agent, so the mobile run has to look like a phone, the same way
+ * Lighthouse's device emulation does.
+ * @param {{mobile:boolean}} viewport
+ * @param {string} browserVersion e.g. "155.0.7012.3"
+ */
+function userAgentFor(viewport, browserVersion) {
+  const chrome = `Chrome/${browserVersion.split('.')[0]}.0.0.0`;
+  return viewport.mobile
+    ? `Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) ${chrome} Mobile Safari/537.36`
+    : `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ${chrome} Safari/537.36`;
+}
+
+/**
  * Open the page at one viewport size and return raw image data.
  * @param {import('playwright-core').Browser} browser
  * @param {string} url
@@ -86,6 +100,7 @@ export async function collectViewport(browser, url, viewport, { timeout }) {
     deviceScaleFactor: viewport.dpr,
     isMobile: viewport.mobile,
     hasTouch: viewport.mobile,
+    userAgent: userAgentFor(viewport, browser.version()),
   });
   try {
     const page = await context.newPage();
