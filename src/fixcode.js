@@ -1,4 +1,4 @@
-import { buildSizes, VIEWPORT_ORDER } from './sizes.js';
+import { buildSizes, slotWidths, VIEWPORT_ORDER } from './sizes.js';
 import { isShopifyCdn, shopifyUrl, placeholderName } from './shopify.js';
 import { parseSrcset } from './srcset.js';
 
@@ -34,8 +34,14 @@ export function buildFix(joined) {
 
   const measured = VIEWPORT_ORDER.filter((name) => joined.perViewport[name]);
   const missing = VIEWPORT_ORDER.filter((name) => name in joined.perViewport && !joined.perViewport[name]);
+  // The ladder has to cover the slot sizes declares, not only the box we measured:
+  // at the top of a bucket the declared slot is the wider of the two
+  const slots = slotWidths(joined.perViewport);
   const { widths, tooSmall } = ladder(
-    measured.map((name) => joined.perViewport[name].needed.width),
+    measured.map((name) => {
+      const vp = joined.perViewport[name];
+      return Math.max(vp.needed.width, Math.ceil(slots[name] * vp.dpr));
+    }),
     joined.file.width,
   );
 

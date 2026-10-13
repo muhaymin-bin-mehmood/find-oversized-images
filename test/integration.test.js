@@ -8,7 +8,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { launchBrowser } from '../src/browser.js';
 import { collectViewport } from '../src/collect.js';
-import { run } from '../src/cli.js';
+import { analyzeViewport } from '../src/analyze.js';
+import { joinViewports } from '../src/join.js';
+import { buildFix } from '../src/fixcode.js';
+import { run, VIEWPORTS } from '../src/cli.js';
 
 const BIN = fileURLToPath(new URL('../bin/find-oversized-images.js', import.meta.url));
 
@@ -289,5 +292,48 @@ test('--json carries a top-level fixes array', { skip }, async () => {
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the generated sizes makes the browser pick the intended candidate', { skip }, async () => {
+  const browser = await launchBrowser();
+  try {
+    // Two real viewports: one measurement cannot produce a sizes value, by design
+    const analyzedAt = [];
+    for (const viewport of [VIEWPORTS.mobile, VIEWPORTS.desktop]) {
+      const raw = await collectViewport(browser, `${server.origin}/page.html`, viewport, { timeout: 30000 });
+      analyzedAt.push(analyzeViewport({ viewport, raw, bytesByUrl: raw.bytesByUrl, threshold: 2 }));
+    }
+    // Only a wrong sizes can be fixed by a new sizes. An image whose srcset has no
+    // smaller candidate (or uses x descriptors) needs new files, which this page lacks.
+    const desktop = analyzedAt[1];
+    const target = desktop.images.find((i) => i.oversized && i.srcset && i.fix.reason === 'sizes');
+    assert.ok(target, 'the fixture has an image whose only problem is its sizes');
+
+    const entry = joinViewports(analyzedAt).find((j) => j.identity === target.identity);
+    const fix = buildFix(entry);
+    assert.ok(fix, 'a fix was produced');
+
+    // Render the image fresh with the generated sizes and ask the browser what it picks.
+    // Mutating sizes on the loaded page would prove nothing: Chrome keeps a larger
+    // candidate it has already downloaded.
+    const context = await browser.newContext({
+      viewport: { width: VIEWPORTS.desktop.width, height: VIEWPORTS.desktop.height },
+      deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    await page.setContent(
+      `<base href="${server.origin}/">` +
+        `<img srcset="${target.srcset}" sizes="${fix.sizes}" style="width:${entry.perViewport.desktop.boxWidth}px">`,
+    );
+    await page.waitForFunction(() => document.images[0]?.currentSrc !== '');
+    const picked = await page.evaluate(() => document.images[0].currentSrc);
+    await context.close();
+
+    const pickedWidth = Number(/(\d+)x\d+\.png/.exec(picked)?.[1] ?? 0);
+    assert.ok(pickedWidth > 0, `expected a sized fixture file, got ${picked}`);
+    assert.ok(pickedWidth < target.file.width, `expected the generated sizes to pick a smaller file than ${target.file.width}, got ${pickedWidth}`);
+  } finally {
+    await browser.close();
   }
 });

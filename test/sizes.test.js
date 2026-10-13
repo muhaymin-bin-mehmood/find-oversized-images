@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSizes } from '../src/sizes.js';
+import { buildSizes, slotWidths } from '../src/sizes.js';
 
 const point = (viewportWidth, boxWidth, dpr) => ({
   viewportWidth,
@@ -38,4 +38,15 @@ test('one measured viewport gives no sizes at all', () => {
 test('two measured viewports still work, skipping the missing bucket', () => {
   const sizes = buildSizes({ mobile: null, tablet: point(768, 384, 2), desktop: point(1366, 300, 1) });
   assert.equal(sizes, '(max-width: 1024px) 512px, 300px');
+});
+
+test('the slot widths are the same biased values the sizes value declares', () => {
+  const perViewport = { mobile: point(390, 358, 3), tablet: point(768, 384, 2), desktop: point(1366, 300, 1) };
+  // the sizes value for this image is "(max-width: 480px) 441px, (max-width: 1024px) 512px, 300px"
+  assert.deepEqual(slotWidths(perViewport), { mobile: 441, tablet: 512, desktop: 300 });
+});
+
+test('a fixed-width image has the same slot in every bucket', () => {
+  const perViewport = { mobile: point(390, 300, 3), tablet: point(768, 304, 2), desktop: point(1366, 300, 1) };
+  assert.deepEqual(slotWidths(perViewport), { mobile: 304, tablet: 304, desktop: 304 });
 });

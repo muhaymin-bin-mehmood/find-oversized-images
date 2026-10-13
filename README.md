@@ -11,7 +11,7 @@ Lighthouse says "properly size images". This tells you which ones, by how much, 
 npx find-oversized-images https://example.com
 ```
 
-It opens the page in the Chrome or Edge you already have (headless, no browser download), once at phone size and once at desktop size. For every `<img>` it compares the file's pixels with the pixels the screen can actually use.
+It opens the page in the Chrome or Edge you already have (headless, no browser download), at phone, tablet and desktop size. For every `<img>` it compares the file's pixels with the pixels the screen can actually use, then writes the `srcset` and `sizes` that would fix it.
 
 No browser window opens. The browser runs in the background and the report prints in your terminal. Add `--html` for a report with thumbnails you can click, or `--json` for the raw data.
 
@@ -61,6 +61,7 @@ Saves `oversized-report.html` in the current folder and opens it in your browser
 | Option | What it does |
 |---|---|
 | `--mobile` | Only the phone viewport (390x844 at 3x) |
+| `--tablet` | Only the tablet viewport (768x1024 at 2x) |
 | `--desktop` | Only the desktop viewport (1366x768 at 1x) |
 | `--width <px>` | Custom viewport width. Replaces the defaults. |
 | `--height <px>` | Custom viewport height (default 800) |
@@ -70,9 +71,49 @@ Saves `oversized-report.html` in the current folder and opens it in your browser
 | `--all` | One row per image, instead of grouping images with the same problem |
 | `--html` | Also save `oversized-report.html` with thumbnails and fixes, and open it |
 | `--no-open` | With `--html`, save the report but do not open it |
+| `--fix-code` | Also write `image-fixes.md` with the paste-ready `srcset` and `sizes` per image |
 | `--json` | Print JSON with every image, not just the oversized ones. Oversized images include `srcset`, `sizes` and a `fix` with `reason` and `advice`. |
 | `--timeout <ms>` | Page load timeout, also used if the page hangs after it loads (default 30000) |
 | `--browser-path <path>` | Use this Chrome or Edge executable |
+
+## Paste-ready fixes
+
+Knowing an image is 3x too big still leaves you to work out what `sizes` should be. The
+tool does that part: it measures the box at three viewports, then writes the code.
+
+```bash
+npx find-oversized-images https://example.com --fix-code
+```
+
+```html
+<!-- keep this image's other attributes (alt, class, loading) -->
+<img
+  src="https://cdn.shopify.com/s/files/1/abaya.jpg?v=171&width=750"
+  srcset="https://cdn.shopify.com/s/files/1/abaya.jpg?v=171&width=300 300w,
+          https://cdn.shopify.com/s/files/1/abaya.jpg?v=171&width=750 750w"
+  sizes="(max-width: 480px) 242px, 280px">
+```
+
+On the Shopify CDN those URLs work as they are, because Shopify resizes on request.
+Everywhere else the tool prints the widths and placeholder names, and says that those
+files have to be produced: it cannot invent URLs for files that do not exist.
+
+The values lean slightly high on purpose. We measure at 390, 768 and 1366, but each media
+query covers a range, and a file that is a little too big costs bytes while a file that is
+too small is visibly blurry.
+
+The same code appears in the `--html` report. There is no Copy button there, because the
+report ships with no scripts and a strict CSP: click the code block once, which selects
+all of it, then Ctrl+C.
+
+Images that could not be measured at every viewport (lazy images that never load on a
+phone, images hidden by CSS at one size) are marked **Not fully measured**, and the note
+says which viewport is missing. Those are the ones to check before pasting.
+
+On WordPress there is no per-image snippet to paste: WordPress builds `srcset` from the
+sizes it has registered. Register the printed widths with `add_image_size`, regenerate
+thumbnails, and return the printed `sizes` value from the `wp_calculate_image_sizes`
+filter.
 
 ## Use it in CI
 

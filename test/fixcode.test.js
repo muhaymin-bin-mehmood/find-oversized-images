@@ -25,17 +25,17 @@ const joined = (over) => ({
   ...over,
 });
 
-test('widths come from what each viewport needs, rounded up to 50', () => {
+test('widths come from the slot sizes declares, rounded up to 50', () => {
   const fix = buildFix(joined());
-  // needs 1080, 768, 300 -> 1100, 800, 300
-  assert.deepEqual(fix.widths, [300, 800, 1100]);
+  // slots 444, 512, 300 at dpr 3, 2, 1 -> 1332, 1024, 300 -> 1350, 1050, 300
+  assert.deepEqual(fix.widths, [300, 1050, 1350]);
   assert.equal(fix.confident, true);
 });
 
 test('a width within 10% of a larger one is dropped', () => {
   const fix = buildFix(joined({ perViewport: { mobile: point(390, 360, 3), tablet: point(768, 530, 2), desktop: point(1366, 300, 1) } }));
-  // needs 1080, 1060 -> 1100, 1100 after rounding, so one candidate remains
-  assert.deepEqual(fix.widths, [300, 1100]);
+  // the mobile slot needs 1350 and the tablet slot 1450: 1350 is within 10% of 1450
+  assert.deepEqual(fix.widths, [300, 1450]);
 });
 
 test('no width above the original file, and a note when the file is too small', () => {
@@ -51,7 +51,7 @@ test('Shopify URLs are built for real, keeping other query parameters', () => {
   const fix = buildFix(joined({ url: 'https://cdn.shopify.com/s/files/1/a.jpg?v=17&height=900' }));
   assert.match(fix.srcset, /\?v=17&width=300 300w/);
   assert.ok(!fix.srcset.includes('height=900'), 'height is dropped so it cannot fight width');
-  assert.match(fix.html, /src="https:\/\/cdn\.shopify\.com\/s\/files\/1\/a\.jpg\?v=17&width=1100"/);
+  assert.match(fix.html, /src="https:\/\/cdn\.shopify\.com\/s\/files\/1\/a\.jpg\?v=17&width=1350"/);
 });
 
 test('a Shopify URL that already has a width is rewritten, not doubled', () => {
@@ -111,4 +111,12 @@ test('one measured viewport produces no fix', () => {
 
 test('an image that is not oversized anywhere produces no fix', () => {
   assert.equal(buildFix(joined({ oversizedAt: [] })), null);
+});
+
+test('the ladder covers the slot that sizes declares at the top of a bucket', () => {
+  // mobile bucket declares 444px; at DPR 3 that is 1332 CSS pixels of image, so a
+  // ladder that stops below 1332 would hand the browser a file that is too small
+  const fix = buildFix(joined());
+  const widest = Math.max(...fix.widths);
+  assert.ok(widest >= 1332, `expected a candidate at or above 1332, got ${JSON.stringify(fix.widths)} with sizes ${fix.sizes}`);
 });
