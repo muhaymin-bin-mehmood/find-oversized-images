@@ -1,0 +1,42 @@
+{
+  "name": "find-oversized-images",
+  "version": "0.1.0",
+  "description": "Find images that are much bigger than the size they are shown at, on any web page.",
+  "type": "module",
+  "bin": {
+    "find-oversized-images": "bin/find-oversized-images.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/math.test.js test/analyze.test.js test/format.test.js test/cli.test.js test/integration.test.js"
+  },
+  "keywords": [
+    "images",
+    "performance",
+    "web-performance",
+    "responsive-images",
+    "srcset",
+    "lcp",
+    "core-web-vitals",
+    "devicepixelratio",
+    "object-fit",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muhaymin-bin-mehmood/find-oversized-images.git"
+  },
+  "homepage": "https://github.com/muhaymin-bin-mehmood/find-oversized-images#readme",
+  "bugs": "https://github.com/muhaymin-bin-mehmood/find-oversized-images/issues",
+  "author": "Muhaymin Bin Mehmood",
+  "license": "MIT",
+  "dependencies": {
+    "playwright-core": "^1.63.0"
+  }
+}
