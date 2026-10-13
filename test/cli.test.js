@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { parseCli, normalizeUrl, VIEWPORTS } from '../src/cli.js';
 import { ToolError } from '../src/errors.js';
 
-test('defaults: both viewports, threshold 2, table output', () => {
+test('defaults: all three viewports, threshold 2, table output', () => {
   const o = parseCli(['https://example.com']);
   assert.equal(o.url, 'https://example.com/');
-  assert.deepEqual(o.viewports, [VIEWPORTS.mobile, VIEWPORTS.desktop]);
+  assert.deepEqual(o.viewports, [VIEWPORTS.mobile, VIEWPORTS.tablet, VIEWPORTS.desktop]);
   assert.equal(o.threshold, 2);
   assert.equal(o.failOn, null);
   assert.equal(o.json, false);
@@ -26,6 +26,7 @@ test('--all, --html and --no-open', () => {
 
 test('default viewports match the spec', () => {
   assert.deepEqual(VIEWPORTS.mobile, { name: 'mobile', width: 390, height: 844, dpr: 3, mobile: true });
+  assert.deepEqual(VIEWPORTS.tablet, { name: 'tablet', width: 768, height: 1024, dpr: 2, mobile: true });
   assert.deepEqual(VIEWPORTS.desktop, { name: 'desktop', width: 1366, height: 768, dpr: 1, mobile: false });
 });
 
@@ -110,4 +111,25 @@ test('--height or --dpr without --width is an error', () => {
 
 test('unknown flags are an error', () => {
   assert.throws(() => parseCli(['x.com', '--wat']), (err) => err instanceof ToolError && /--help/.test(err.message));
+});
+
+test('a default run measures three viewports', () => {
+  const opts = parseCli(['https://example.com']);
+  assert.deepEqual(
+    opts.viewports.map((v) => v.name),
+    ['mobile', 'tablet', 'desktop'],
+  );
+});
+
+test('--tablet picks only the tablet viewport', () => {
+  const opts = parseCli(['--tablet', 'https://example.com']);
+  assert.deepEqual(
+    opts.viewports.map((v) => [v.name, v.width, v.dpr]),
+    [['tablet', 768, 2]],
+  );
+});
+
+test('--fix-code is off by default', () => {
+  assert.equal(parseCli(['https://example.com']).fixCode, false);
+  assert.equal(parseCli(['--fix-code', 'https://example.com']).fixCode, true);
 });

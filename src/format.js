@@ -83,12 +83,14 @@ function formatViewport(vp, threshold, { all, links }) {
 /**
  * Human-readable report.
  * @param {object} report
- * @param {{all?: boolean, links?: boolean}} [options] all: one row per image instead of
- *   grouping; links: make image names clickable (OSC 8) in terminals that support it
+ * @param {{all?: boolean, links?: boolean, fixes?: number}} [options] all: one row per image
+ *   instead of grouping; links: make image names clickable (OSC 8) in terminals that support
+ *   it; fixes: how many images have paste-ready code, which only adds a pointer line
  */
-export function formatTable(report, { all = false, links = false } = {}) {
+export function formatTable(report, { all = false, links = false, fixes = 0 } = {}) {
   const sections = report.viewports.map((vp) => formatViewport(vp, report.threshold, { all, links }));
-  return `${report.url}\n\n${sections.join('\n\n')}\n`;
+  const pointer = fixes ? '\nPaste-ready srcset and sizes for these images: run with --fix-code (writes image-fixes.md) or --html\n' : '';
+  return `${report.url}\n\n${sections.join('\n\n')}\n${pointer}`;
 }
 
 /** Machine-readable report. */

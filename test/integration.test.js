@@ -116,16 +116,20 @@ test('applies the device pixel ratio', { skip }, async () => {
   assert.equal(byCase(images, 'contain').extra, 4);
 });
 
-test('default run prints a table for mobile and desktop', { skip }, async () => {
+test('default run prints a table for mobile, tablet and desktop', { skip }, async () => {
   server.pageUserAgents.length = 0;
   const { code, stdout, stderr } = await runCli([`${server.origin}/page.html`]);
-  // Sites that serve different markup by user agent must see a phone on the mobile run
-  const [mobileUa, desktopUa] = server.pageUserAgents;
+  // Sites that serve different markup by user agent must see a phone on the mobile run,
+  // a tablet on the tablet run, and a desktop on the desktop run
+  const [mobileUa, tabletUa, desktopUa] = server.pageUserAgents;
   assert.match(mobileUa, /Android.*Mobile/);
+  assert.match(tabletUa, /iPad/);
+  assert.doesNotMatch(tabletUa, /Android/);
   assert.doesNotMatch(desktopUa, /Mobile/);
-  assert.doesNotMatch(mobileUa + desktopUa, /Headless/);
+  assert.doesNotMatch(mobileUa + tabletUa + desktopUa, /Headless/);
   assert.equal(code, 0, stderr);
   assert.match(stdout, /Mobile 390x844 @3x/);
+  assert.match(stdout, /Tablet 768x1024 @2x/);
   assert.match(stdout, /Desktop 1366x768 @1x/);
   assert.match(stdout, /<- LCP/);
   assert.match(stdout, /Total: ~\d+ KB could be saved \(estimate, conservative\)/);
@@ -240,5 +244,50 @@ test('reports a stable identity, a dom path and where the srcset came from', { s
     assert.ok(!withSrcset.identity.startsWith('http'), 'identity is the attribute, not a resolved URL');
   } finally {
     await browser.close();
+  }
+});
+
+test('--fix-code writes a markdown file and the table points at it', { skip }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'fix-code-'));
+  try {
+    const out = [];
+    const code = await run([`${server.origin}/page.html`, '--fix-code'], {
+      stdout: { write: (s) => out.push(s), isTTY: false },
+      stderr: { write: () => {} },
+      env: {},
+      cwd: dir,
+      openFile: () => {},
+    });
+    assert.equal(code, 0);
+    const table = out.join('');
+    assert.match(table, /Paste-ready srcset and sizes/);
+    const md = readFileSync(join(dir, 'image-fixes.md'), 'utf8');
+    assert.match(md, /```html/);
+    assert.match(md, /sizes="/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('--json carries a top-level fixes array', { skip }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'fix-json-'));
+  try {
+    const out = [];
+    await run([`${server.origin}/page.html`, '--json'], {
+      stdout: { write: (s) => out.push(s), isTTY: false },
+      stderr: { write: () => {} },
+      env: {},
+      cwd: dir,
+      openFile: () => {},
+    });
+    const report = JSON.parse(out.join(''));
+    assert.equal(report.viewports.length, 3);
+    assert.ok(Array.isArray(report.fixes));
+    for (const entry of report.fixes) {
+      assert.ok(typeof entry.fix.sizes === 'string');
+      assert.ok(Array.isArray(entry.fix.widths));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

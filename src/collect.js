@@ -160,6 +160,13 @@ async function readImages({ decodable, decodeMaxMs }) {
  */
 function userAgentFor(viewport, browserVersion) {
   const chrome = `Chrome/${browserVersion.split('.')[0]}.0.0.0`;
+  // A phone user agent at tablet width would get the phone layout, which is the one
+  // thing the tablet run exists to avoid
+  if (viewport.name === 'tablet') {
+    return `Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) CriOS/${
+      browserVersion.split('.')[0]
+    }.0.0.0 Mobile/15E148 Safari/537.36`;
+  }
   return viewport.mobile
     ? `Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) ${chrome} Mobile Safari/537.36`
     : `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ${chrome} Safari/537.36`;
